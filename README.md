@@ -48,7 +48,7 @@ __KAILASH RAMLAUL & CHRISTOPHER H S AYLETT - ICL SSB - 12/06/2018__
 - The theoretical value of CRef is calculated between the unfiltered
 halfsets according to the equation of Henderson and Rosenthal:
 
-                `double Cref = sqrt((2 * FSC) / (1 + FSC))`
+`double Cref = sqrt((2 * FSC) / (1 + FSC))`
 
 - Here the FSC refers to the half-set FSC. Cref is compared to the
 cross FSC (xFSC) between the summed dataset and the output of the LAFTER algorithm.
