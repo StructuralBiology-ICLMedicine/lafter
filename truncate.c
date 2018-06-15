@@ -23,14 +23,14 @@
 #define STEP 1
 
 // Updates out if in1/2 over noise - returns fractional recovery
-double truncate_map(double *in1, double *in2, double *out, r_mrc *mask, list *node, double overfit_correction, int32_t size){
-  int32_t i, max = size * size * size;
+double truncate_map(double *in1, double *in2, double *out, r_mrc *mask, list *node, arguments *args, int32_t size){
+  int32_t i, m, n, full = size * size * size;
   double rcv = 0.0;
   double cur, cor, count = 0.0;
   double noise = 0.0;
 
   // Calculate max noise
-  for (i = THREAD; i < max; i += STEP){
+  for (i = THREAD; i < full; i += STEP){
     if (mask->data[i] < 0.99){
       continue;
     }
@@ -41,9 +41,35 @@ double truncate_map(double *in1, double *in2, double *out, r_mrc *mask, list *no
       noise = cor;
     }
   }
-  noise *= overfit_correction;
+  if (node->nxt == NULL && args->ovfit != 1.0){
+    if (args->ovfit == 0.0){
+      args->ovfit = 1.0;
+    }
+    m = 0;
+    do {
+      n = 0;
+      for (i = THREAD; i < full; i += STEP){
+	if (mask->data[i] < 0.99){
+	  continue;
+	}
+	cur = in1[i] + in2[i];
+	cor = cur * cur;
+	if (cor > args->ovfit * noise){
+	  n++;
+	}
+      }
+      if (((double) n) / count > 0.025){
+	m++;
+	args->ovfit *= 2.0;
+      } else {
+	printf("\t ESTIMATED OVERFITING %i-fold \n\n", m);
+	break;
+      }
+    } while (1);
+  }
+  noise *= args->ovfit;
   // Pass through signal greater than noise
-  for (i = THREAD; i < max; i += STEP){
+  for (i = THREAD; i < full; i += STEP){
     if (fabs(out[i]) > 0.0){
       rcv += 1;
       continue;

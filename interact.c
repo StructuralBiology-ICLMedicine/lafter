@@ -40,11 +40,25 @@ int get_num_jobs(void){
 
 arguments *parse_args(int argc, char **argv){
   // Print usage and disclaimer
-  printf("\n    User input: %s --v1 half_map1.mrc --v2 half_map2.mrc [ --mask mask.mrc || --rad radius_in_voxels ] [ --sharp ] [ --fsc fsc_cut_off ]\n\n", argv[0]);
+  if (argc < 7){
+    printf("\n    Usage: %s --v1 half_map1.mrc --v2 half_map2.mrc ( --mask mask.mrc || --rad voxel_radius )[ --sharp ][ --fsc cut_off ][ --correct_overfitting ]\n", argv[0]);
+  }
+
+  printf("\n\n\n");
+  printf("                 _______             _______      _____________  ___________________  ____________  ______________         \n");
+  printf("                |\\      \\         _-         --__|\\            \\|\\                  \\|\\           \\|\\             --_      \n");
+  printf("                | \\      \\       |       __      \\ \\       _____\\ \\______       _____\\ \\      _____\\ \\       __      \\     \n");
+  printf("                \\  \\      \\      |\\      \\_\\      \\ \\         \\ | |     |\\      \\    |  \\         \\|  \\      \\_\\      |    \n");
+  printf("                 \\  \\      \\_____| \\       __      \\ \\       __\\|\\|_____| \\      \\___|\\  \\      ___\\__ \\       __     \\_   \n");
+  printf("                  \\  \\            \\ \\      \\ \\      \\ \\      \\ |        \\  \\      \\    \\  \\           \\ \\      \\ -_     -_ \n");
+  printf("                   \\  \\____________\\ \\______\\ \\______\\ \\______\\|         \\  \\______\\    \\  \\___________\\ \\______\\  \\______\\\n");
+  printf("                    \\ |            | |      | |      | |      |           \\ |      |     \\ |           | |      |\\ |      |\n");
+  printf("                     \\|____________|\\|______|\\|______|\\|______|            \\|______|      \\|___________|\\|______| \\|______|\n\n\n\n");
+
   printf("    PLEASE NOTE: LAFTER absolutely requires the unfiltered halfmaps and mask used for processing - anything else is invalid\n");
   printf("                 The output maps from LAFTER are incompatible with atomic coordinate refinement but will aid model building\n");
   printf("                 Junk in = Junk out is one thing we will guarantee. Report any bugs to c.aylett@imperial.ac.uk - good luck!\n\n");
-  printf("    LAFTER v1.0: Noise suppression and SNR filtering - header correct on 01-07-2018 - GNU licensed - K Ramlaul & CHS Aylett\n");
+  printf("    LAFTER v1.0: Noise suppression and SNR filtering - header correct on 14-06-2018 - GNU licensed - K Ramlaul & CHS Aylett\n\n");
 
   // Capture user requested settings
   int i;
@@ -53,6 +67,7 @@ arguments *parse_args(int argc, char **argv){
   args->rad = 0.000;
   args->cut = 0.143;
   args->sharp = 0.0;
+  args->ovfit = 1.0;
   for (i = 1; i < argc; i++){
     if (!strcmp(argv[i], "--v1") && ((i + 1) < argc)){
       args->vol1 = argv[i + 1];
@@ -60,6 +75,9 @@ arguments *parse_args(int argc, char **argv){
       args->vol2 = argv[i + 1];
     } else if (!strcmp(argv[i], "--mask") && ((i + 1) < argc)){
       args->mask = argv[i + 1];
+    } else if (!strcmp(argv[i], "--correct_overfitting")){
+      args->ovfit = 0.0;
+      printf("    LAFTER will attempt to correct overfitting. This can be used if residual noise is visible, but we recommend re-refining \n\n");
     } else if (!strcmp(argv[i], "--fsc") && ((i + 1) < argc)){
       args->cut = atof(argv[i + 1]);
 #ifndef DEBUG
@@ -67,15 +85,23 @@ arguments *parse_args(int argc, char **argv){
 	args->cut = 0.143;
       }
 #endif
+      printf("    LAFTER will use this figure as the FSC cut-off at which no new resolution shells are incorporated. The default is 0.143 \n\n");
     } else if (!strcmp(argv[i], "--rad") && ((i + 1) < argc)){
       args->rad = atof(argv[i + 1]);
+      if (args->rad < 10.0){
+        printf("    Necessary maps not found or not specified LAFTER requires both volumes and mask - set --rad when refined without a mask \n\n");
+        printf("    Radius was not specified correctly - a float or integer value in voxels is required. Divide by Å/pixel if mask set in Å \n\n");
+        exit(1);
+      }
       args->mask = argv[i];
+      printf("    LAFTER will soft mask the map at this radius in voxels. Please note that if refinement was masked you MUST use the mask \n\n");
     } else if (!strcmp(argv[i], "--sharp")){
       args->sharp = 1.0;
+      printf("    LAFTER will sharpen the output map after the last cycle. This will not affect the FSC or any of the statistics provided \n\n");
     }
   }
   if (args->vol1 == NULL || args->vol2 == NULL || args->mask == NULL){
-    printf("\n    Necessary maps not found or not specified, LAFTER requires both volumes and mask - you must set --rad if refined without a mask \n\n");
+    printf("    Necessary maps not found or not specified LAFTER requires both volumes and mask - set --rad when refined without a mask \n\n");
     exit(1);
   }
   return args;
@@ -92,6 +118,20 @@ list *extend_list(list *current, double p){
   return node;
 }
 
+// End list for overfitting calculation
+list *end_list(list *current){
+  list *node = calloc(1, sizeof(list));
+  node->res = current->res + current->stp;
+  node->stp = 0.475 - (current->res + current->stp);
+  if (node->stp < 0.0625){
+    node->stp = 0.0625;
+  }
+  node->prv = current;
+  node->nxt = NULL;
+  current->nxt = node;
+  return node;
+}
+
 // Read map header and data and return corresponding data structure
 r_mrc *read_mrc(char *filename){
 
@@ -99,7 +139,7 @@ r_mrc *read_mrc(char *filename){
   int i;
   f = fopen(filename, "rb");
   if (!f){
-    printf("Error reading %s - bad file handle\n", filename);
+    printf("\n\tError reading %s - bad file handle\n\n", filename);
     exit(1);
   }
   r_mrc *header = calloc(1, sizeof(r_mrc));

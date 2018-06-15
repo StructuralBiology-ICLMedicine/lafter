@@ -31,7 +31,7 @@
 
 /* Type definitions */
 
-#define DEBUG
+// #define DEBUG
 
 // Arguments
 typedef struct {
@@ -39,6 +39,7 @@ typedef struct {
   char   *vol2;
   char   *mask;
   double sharp;
+  double ovfit;
   double   rad;
   double   cut;
 } arguments;
@@ -50,6 +51,7 @@ struct list {
   double stp;
   double crf;
   double fsc;
+  double max;
   list  *prv;
   list  *nxt;
 };
@@ -92,6 +94,9 @@ list *extend_list(list *node, double p);
 // Extend list by one using p-val
 // Calculates step size
 
+list *end_list(list *node);
+// Finish list to 0.5 for overfit calculation
+
 r_mrc *read_mrc(char* filename);
 // Read mrc file and build struct
 
@@ -126,7 +131,7 @@ double suppress_noise(double *in1, double *in2, double *out1, double *out2, r_mr
 // Suppress noise between in/out
 // Returns mean p-val in mask
 
-double truncate_map(double *in1, double *in2, double *out, r_mrc *mask, list *node, double overfit_correction, int32_t size);
+double truncate_map(double *in1, double *in2, double *out, r_mrc *mask, list *node, arguments *args, int32_t size);
 // Updates out if in1/2 over noise
 // Returns fractional recovery
 

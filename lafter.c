@@ -120,7 +120,6 @@ int main(int argc, char **argv){
   // Loop parameterisation
   double max_res = 0.45;
   double mean_p  = 1.00;
-  double ov_fit  = 0.00;
 
   // Noise suppression loop
   printf("\n\t Suppressing noise -- Pass 1\n\n");
@@ -136,19 +135,26 @@ int main(int argc, char **argv){
     fftw_execute(fft_ko2_ri2);
 
     mean_p = suppress_noise(ri1, ri2, ro1, ro2, mask, tail, xyz);
-    ov_fit = 0.9 + fabs(mean_p);
 
-    printf("\t Resolution = %12.6g | MeanPval = %12.6g | FSC = %12.6g\n", tail->res + tail->stp, mean_p, tail->fsc);
+    printf("\t Resolution = %12.6g | MeanProb = %12.6g | FSC = %12.6g\n", tail->res + tail->stp, mean_p, tail->fsc);
 
-    if ((tail->res + tail->stp) > max_res || tail->fsc < args->cut){
-      max_res = tail->res;
-      break;
-    }
 #ifdef DEBUG
     if (args->cut == -1.0){
-      mean_p = 1.0;
+      mean_p = 0.333;
     }
 #endif
+
+    if ((tail->res + tail->stp) > max_res || tail->fsc < args->cut){
+      if (args->ovfit != 1.0 && tail->stp < 0.0625){
+	max_res = tail->res;
+	tail = end_list(tail);
+	continue;
+      } else {
+	max_res = tail->res;
+	break;
+      }
+    }
+
     tail = extend_list(tail, mean_p);
 
   } while (1);
@@ -166,8 +172,8 @@ int main(int argc, char **argv){
   ki2[0] = 0.0 + 0.0I;
 
   // Output result
-  printf("\n\t Outputing filtered MRC file\n");
-  char *name1 = "tmp.mrc";
+  printf("\n\t Writing diagnostic MRC file\n");
+  char *name1 = ".tmp.mrc";
   memset(ko1, 0, k_st);
   add_fft(ki1, ko1, xyz);
   add_fft(ki2, ko1, xyz);
@@ -177,9 +183,7 @@ int main(int argc, char **argv){
   memset(ro1, 0, r_st);
   memset(ro2, 0, r_st);
 
-  printf("\n\t Estimated overfitting: %g\n", ov_fit);
-
-  // Truncate by SNR
+  // Truncate by SNR 
   printf("\n\t De-noising volume -- Pass 2\n\n");
   do {
 
@@ -189,7 +193,7 @@ int main(int argc, char **argv){
     fftw_execute(fft_ko1_ri1);
     fftw_execute(fft_ko2_ri2);
 
-    mean_p = truncate_map(ri1, ri2, ro1, mask, tail, ov_fit, xyz);
+    mean_p = truncate_map(ri1, ri2, ro1, mask, tail, args, xyz);
 
     printf("\t Resolution = %12.6g | Recovery = %12.6g\n", tail->res + tail->stp, mean_p);
 
@@ -224,14 +228,14 @@ int main(int argc, char **argv){
   add_fft(ki1, ko1, xyz);
   write_upsampled(ko1, max_res, mask, name2, args, xyz);
 
-  //
-  char *name3 = "_tmp.mrc";
+#ifdef DEBUG
+  char *name3 = "lafter_non-upsampled.mrc";
   write_mrc(mask, ro1, name3, xyz);
-  //
+#endif
 
   // Output quality curves
   int n;
-  printf("\n\t Comparing Cref - LAFTER FSC ");
+  printf("\n\t Comparing Cref - LAFTER FSC \n");
   do {
 
     bandpass_filter(ki1, ko1, tail, xyz);
@@ -239,13 +243,13 @@ int main(int argc, char **argv){
 
     tail->fsc = calc_fsc(ko1, ko2, xyz);
 
-    printf("\n\n\t Resolution = %12.6g - Cref = %12.6g - ", tail->res + tail->stp, tail->crf);
+    printf("\n\t Resolution = %12.6g | Cref = %12.6g - ", tail->res + tail->stp, tail->crf);
     for (n = 0; n < (int)(50 * tail->crf); n++){
       printf(">");
       fflush(stdout);
     }
 
-    printf("\n\t                             xFSC = %12.6g - ", tail->fsc);
+    printf("\n\t                           | xFSC = %12.6g - ", tail->fsc);
     for (n = 0; n < (int)(50 * tail->fsc); n++){
       printf("#");
       fflush(stdout);
@@ -255,6 +259,7 @@ int main(int argc, char **argv){
       break;
     }
 
+    printf("\n\t                           |");
     tail = tail->nxt;
 
   } while (1);
