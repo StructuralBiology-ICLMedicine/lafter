@@ -1,6 +1,7 @@
 
 # LAFTER [ Local Agreement Filter for Transmission EM Reconstructions ]
 __KAILASH RAMLAUL & CHRISTOPHER H S AYLETT - ICL SSB - 12/06/2018__
+CMAKE input kindly provided by C Palmer - CCPEM - 24/09/2018
 
 ## TLDR:
 - LAFTER is a local filter for single particle TEM reconstructions
