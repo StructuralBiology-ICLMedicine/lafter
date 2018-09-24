@@ -228,10 +228,10 @@ int main(int argc, char **argv){
   add_fft(ki1, ko1, xyz);
   write_upsampled(ko1, max_res, mask, name2, args, xyz);
 
-#ifdef DEBUG
+  //#ifdef DEBUG
   char *name3 = "lafter_non-upsampled.mrc";
   write_mrc(mask, ro1, name3, xyz);
-#endif
+  //#endif
 
   // Output quality curves
   int n;

@@ -60,8 +60,8 @@ void soften_map(double *in, double *out, int32_t size){
 void write_upsampled(fftw_complex *in, double res, r_mrc *mask, char *name, arguments *args, int32_t size){
 
   // Allocate memory for maps
-  fftw_complex *ks = fftw_alloc_complex((size * 2) * (size * 2) * (size + 1) * sizeof(fftw_complex));
-  double *rs = fftw_alloc_real((size * 2) * (size * 2) * (size * 2) * sizeof(double));
+  fftw_complex *ks = fftw_alloc_complex((size * 2) * (size * 2) * (size + 1));
+  double *rs = fftw_alloc_real((size * 2) * (size * 2) * (size * 2));
 
   // Make FFTW plans
   fftw_plan fft_ks_rs = fftw_plan_dft_c2r_3d(size * 2, size * 2, size * 2, ks, rs, FFTW_ESTIMATE);
