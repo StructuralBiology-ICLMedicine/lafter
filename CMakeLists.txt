@@ -7,6 +7,9 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif()
 
+# Find pthread library
+find_package(Threads REQUIRED)
+
 # Find FFTW3
 find_package(FFTW3 CONFIG REQUIRED)
 include_directories(${FFTW3_INCLUDE_DIRS})
@@ -19,7 +22,7 @@ file(GLOB SOURCES "*.c")
 # Compile and link the executable
 add_executable(lafter ${SOURCES})
 set_property(TARGET lafter PROPERTY C_STANDARD 99)
-target_link_libraries(lafter m ${FFTW3} ${FFTW3_THREADS})
+target_link_libraries(lafter m ${FFTW3} ${FFTW3_THREADS} ${CMAKE_THREAD_LIBS_INIT})
 
 # Install the executable into the bin directory
 # (This is done relative to the CMAKE_INSTALL_PREFIX and is a sensible default)

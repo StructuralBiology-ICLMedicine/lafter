@@ -1,19 +1,21 @@
-/*                                                                       
- * Copyright 10/12/2017 - Dr. Christopher H. S. Aylett                   
- *                                                                       
- * This program is free software; you can redistribute it and/or modify  
- * it under the terms of version 3 of the GNU General Public License as  
- * published by the Free Software Foundation.                            
- *                                                                       
- * This program is distributed in the hope that it will be useful,       
- * but WITHOUT ANY WARRANTY; without even the implied warranty of        
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         
- * GNU General Public License for more details - YOU HAVE BEEN WARNED!   
- *                                                                       
- * Program: LAFTER V1.0                                                  
- *                                                                       
- * Authors: Chris Aylett                                                 
- *                                                                       
+
+/*                                                                         
+ * Copyright 10/12/2017 - Dr. Christopher H. S. Aylett                     
+ *                                                                         
+ * This program is free software; you can redistribute it and/or modify    
+ * it under the terms of version 3 of the GNU General Public License as    
+ * published by the Free Software Foundation.                              
+ *                                                                         
+ * This program is distributed in the hope that it will be useful,         
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of          
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           
+ * GNU General Public License for more details - YOU HAVE BEEN WARNED!     
+ *                                                                         
+ * Program: LAFTER V1.1                                                    
+ *                                                                         
+ * Authors: Chris Aylett                                                   
+ *          Colin Palmer                                                   
+ *                                                                         
  */
 
 // Library header inclusion for linking                                  
@@ -41,7 +43,7 @@ int get_num_jobs(void){
 arguments *parse_args(int argc, char **argv){
   // Print usage and disclaimer
   if (argc < 7){
-    printf("\n    Usage: %s --v1 half_map1.mrc --v2 half_map2.mrc ( --mask mask.mrc || --rad voxel_radius )[ --sharp ][ --fsc cut_off ][ --correct_overfitting ]\n", argv[0]);
+    printf("\n    Usage: %s --v1 half_map1.mrc --v2 half_map2.mrc ( --mask mask.mrc || --particle_diameter diameter )[ --sharp ][ --fsc cut_off ][ --downsample ][ --overfitting ]\n", argv[0]);
   }
 
   printf("\n\n\n");
@@ -56,9 +58,15 @@ arguments *parse_args(int argc, char **argv){
   printf("                     \\|____________|\\|______|\\|______|\\|______|            \\|______|      \\|___________|\\|______| \\|______|\n\n\n\n");
 
   printf("    PLEASE NOTE: LAFTER absolutely requires the unfiltered halfmaps and mask used for processing - anything else is invalid\n");
-  printf("                 The output maps from LAFTER are incompatible with atomic coordinate refinement but will aid model building\n");
+  printf("                 If a diameter for a spherical mask was specified during refinement, not a specific mask, please provide it\n\n");
+  printf("                 If the argument --sharp is specified, LAFTER will sharpen the output map further than is usually necessary\n\n");
+  printf("                 The argument --fsc specifies a value of the FSC at which LAFTER should halt other than 0.143 - the default\n\n");
+  printf("                 If --downsample is set LAFTER outputs a map at the original scale - only recommended if maps are too large\n\n");
+  printf("                 If your refinement suffers from overfitting --overfitting attempts to mitigate against the effects of this\n");
+  printf("                 Mitigation is not foolproof however and we would suggest that re-refinement is the best idea in most cases\n\n");
+  printf("                 The output maps from LAFTER are incompatible with atomic coordinate refinement but will aid model building\n\n");
   printf("                 Junk in = Junk out is one thing we will guarantee. Report any bugs to c.aylett@imperial.ac.uk - good luck!\n\n");
-  printf("    LAFTER v1.0: Noise suppression and SNR filtering - header correct on 14-06-2018 - GNU licensed - K Ramlaul & CHS Aylett\n\n");
+  printf("    LAFTER v1.1: Noise suppression and SNR filtering - 01-11-2018 GNU Public Licensed - K Ramlaul, CM Palmer and CHS Aylett\n\n");
 
   // Capture user requested settings
   int i;
@@ -68,6 +76,7 @@ arguments *parse_args(int argc, char **argv){
   args->cut = 0.143;
   args->sharp = 0.0;
   args->ovfit = 1.0;
+  args->ups = 2;
   for (i = 1; i < argc; i++){
     if (!strcmp(argv[i], "--v1") && ((i + 1) < argc)){
       args->vol1 = argv[i + 1];
@@ -75,33 +84,36 @@ arguments *parse_args(int argc, char **argv){
       args->vol2 = argv[i + 1];
     } else if (!strcmp(argv[i], "--mask") && ((i + 1) < argc)){
       args->mask = argv[i + 1];
-    } else if (!strcmp(argv[i], "--correct_overfitting")){
+    } else if (!strcmp(argv[i], "--overfitting")){
       args->ovfit = 0.0;
       printf("    LAFTER will attempt to correct overfitting. This can be used if residual noise is visible, but we recommend re-refining \n\n");
     } else if (!strcmp(argv[i], "--fsc") && ((i + 1) < argc)){
       args->cut = atof(argv[i + 1]);
 #ifndef DEBUG
       if (args->cut < 0.1 || args->cut > 1.0){
-	args->cut = 0.143;
+        args->cut = 0.143;
       }
 #endif
       printf("    LAFTER will use this figure as the FSC cut-off at which no new resolution shells are incorporated. The default is 0.143 \n\n");
-    } else if (!strcmp(argv[i], "--rad") && ((i + 1) < argc)){
+    } else if (!strcmp(argv[i], "--particle_diameter") && ((i + 1) < argc)){
       args->rad = atof(argv[i + 1]);
+      args->rad /= 2.0;
       if (args->rad < 10.0){
-        printf("    Necessary maps not found or not specified LAFTER requires both volumes and mask - set --rad when refined without a mask \n\n");
-        printf("    Radius was not specified correctly - a float or integer value in voxels is required. Divide by Å/pixel if mask set in Å \n\n");
+        printf("    Particle diameter is not a number or is too small. A numerical value measured in voxels and greater than 20 is required \n\n");
         exit(1);
       }
       args->mask = argv[i];
       printf("    LAFTER will soft mask the map at this radius in voxels. Please note that if refinement was masked you MUST use the mask \n\n");
     } else if (!strcmp(argv[i], "--sharp")){
       args->sharp = 1.0;
-      printf("    LAFTER will sharpen the output map after the last cycle. This will not affect the FSC or any of the statistics provided \n\n");
+      printf("    LAFTER will sharpen the output map after the last cycle. This is typically unnecessary but can provide marginal benefit \n\n");
+    } else if (!strcmp(argv[i], "--downsample")){
+      args->ups = 1;
+      printf("    LAFTER will not upsample the output map. This is typically only necessary if the map is large and you run out of memory \n\n");
     }
   }
   if (args->vol1 == NULL || args->vol2 == NULL || args->mask == NULL){
-    printf("    Necessary maps not found or not specified LAFTER requires both volumes and mask - set --rad when refined without a mask \n\n");
+    printf("    Necessary maps not found or not specified - LAFTER requires two half-set volumes and either a mask or particle diameter \n\n");
     exit(1);
   }
   return args;
@@ -111,7 +123,7 @@ arguments *parse_args(int argc, char **argv){
 list *extend_list(list *current, double p){
   list *node = calloc(1, sizeof(list));
   node->res = current->res + current->stp;
-  node->stp = p * (node->res / 8.0);
+  node->stp = p * (node->res / 16.0);
   node->prv = current;
   node->nxt = NULL;
   current->nxt = node;
@@ -182,6 +194,11 @@ r_mrc *read_mrc(char *filename){
   }
   fread(header->data, sizeof(float), (header->n_crs[0] * header->n_crs[1] * header->n_crs[2]), f);
   fclose(f);
+  if (header->length_xyz[0] < 1e-9 || header->length_xyz[1] < 1e-9 || header->length_xyz[2] < 1e-9){
+    header->length_xyz[0] = (float) header->n_xyz[0];
+    header->length_xyz[1] = (float) header->n_xyz[1];
+    header->length_xyz[2] = (float) header->n_xyz[2];
+  }
   return header;
 }
 
@@ -200,19 +217,20 @@ void write_mrc(r_mrc* header, double *vol, char* filename, int32_t size){
     exit(1);
   }
   for (i = 0; i < total; i++){
-    header->data[i] = (float) vol[i];
+    // Divide by total to normalise data values (assuming this is always called after an IFFT)
+    header->data[i] = (float) (vol[i] / total);
   }
 
   // Calculate new min, max and mean figures for header
   header->d_min = header->data[0];
-  header->d_max = header->data[0]; 
+  header->d_max = header->data[0];
   for (i = 0; i < total; i++){
     current = (double) header->data[i];
     if (current < header->d_min){
       header->d_min = (float) current;
     }
     if (current > header->d_max){
-      header->d_min = (float) current;
+      header->d_max = (float) current;
     }
     sum += current;
   }
@@ -266,47 +284,3 @@ void write_mrc(r_mrc* header, double *vol, char* filename, int32_t size){
   return;
 }
 
-// Make mask from radius in voxels
-r_mrc *make_msk(r_mrc *in, arguments *args){
-  r_mrc *out = malloc(sizeof(r_mrc));
-  int32_t size = in->n_crs[0];
-  int32_t ind = 0;
-  args->rad *= args->rad;
-  double i, j, k, cen = (double) size / 2;
-  double norm;
-  memcpy(out, in, sizeof(r_mrc));
-  out->data = calloc(size * size * size, sizeof(float));
-  for(int32_t _k = 0; _k < size; _k++){
-    k = (double) _k - cen;
-    k = k * k;
-    for(int32_t _j = 0; _j < size; _j++){
-      j = (double) _j - cen;
-      j = j * j;
-      for(int32_t _i = 0; _i < size; _i++){
-	i = (double) _i - cen;
-	i = i * i;
-	norm = (double) k + j + i;
-	out->data[ind++] = 1.0 / (1.0 + pow((norm / args->rad), 8.0));
-      }
-    }
-  }
-  return out;
-}
-
-// Add MRC map in to out
-void add_map(r_mrc *in, double *out){
-  int32_t i, max = in->n_crs[0] * in->n_crs[1] * in->n_crs[2];
-  for (i = 0; i < max; i++){
-    out[i] += (double) in->data[i];
-  }
-  return;
-}
-
-// Multiply out by in elementwise
-void apply_mask(r_mrc *in, double *out){
-  int32_t i, max = in->n_crs[0] * in->n_crs[1] * in->n_crs[2];
-  for (i = 0; i < max; i++){
-    out[i] *= (double) in->data[i];
-  }
-  return;
-}

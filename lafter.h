@@ -1,19 +1,21 @@
-/*                                                                       
- * Copyright 10/12/2017 - Dr. Christopher H. S. Aylett                   
- *                                                                       
- * This program is free software; you can redistribute it and/or modify  
- * it under the terms of version 3 of the GNU General Public License as  
- * published by the Free Software Foundation.                            
- *                                                                       
- * This program is distributed in the hope that it will be useful,       
- * but WITHOUT ANY WARRANTY; without even the implied warranty of        
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         
- * GNU General Public License for more details - YOU HAVE BEEN WARNED!   
- *                                                                       
- * Program: LAFTER V1.0                                                  
- *                                                                       
- * Authors: Chris Aylett                                                 
- *                                                                       
+
+/*                                                                         
+ * Copyright 10/12/2017 - Dr. Christopher H. S. Aylett                     
+ *                                                                         
+ * This program is free software; you can redistribute it and/or modify    
+ * it under the terms of version 3 of the GNU General Public License as    
+ * published by the Free Software Foundation.                              
+ *                                                                         
+ * This program is distributed in the hope that it will be useful,         
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of          
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           
+ * GNU General Public License for more details - YOU HAVE BEEN WARNED!     
+ *                                                                         
+ * Program: LAFTER V1.1                                                    
+ *                                                                         
+ * Authors: Chris Aylett                                                   
+ *          Colin Palmer                                                   
+ *                                                                         
  */
 
 // Library header inclusion for linking                                  
@@ -31,7 +33,9 @@
 
 /* Type definitions */
 
-// #define DEBUG
+#ifndef NDEBUG
+#define DEBUG
+#endif
 
 // Arguments
 typedef struct {
@@ -42,6 +46,7 @@ typedef struct {
   double ovfit;
   double   rad;
   double   cut;
+  int32_t  ups;
 } arguments;
 
 // List node
@@ -103,41 +108,41 @@ r_mrc *read_mrc(char* filename);
 void write_mrc(r_mrc *mrc, double *map,char* filename, int32_t size);
 // Read mrc file and build struct
 
-r_mrc *make_msk(r_mrc *mrc, arguments *args);
+r_mrc *make_msk(r_mrc *mrc, arguments *args, int32_t nthread);
 // Make mask from radius in voxels
 
-void add_map(r_mrc *in, double *out);
+void add_map(r_mrc *in, double *out, int32_t nthread);
 // Add MRC map in to out
 
-void add_fft(fftw_complex *in, fftw_complex *out, int32_t size);
+void add_fft(fftw_complex *in, fftw_complex *out, int32_t size, int32_t nthread);
 // Add FFT in to out
 
-void apply_mask(r_mrc *in, double *out);
+void apply_mask(r_mrc *in, double *out, int32_t nthread);
 // Multiply out by in elementwise
 
-void bandpass_filter(fftw_complex *in, fftw_complex *out, list *node, int32_t size);
+void bandpass_filter(fftw_complex *in, fftw_complex *out, list *node, int32_t size, int32_t nthread);
 // Apply bandpass to in and writes to out
 // List node specifies resolutions
 
-void lowpass_filter(fftw_complex *in, fftw_complex *out, list *node, int32_t size);
+void lowpass_filter(fftw_complex *in, fftw_complex *out, list *node, int32_t size, int32_t nthread);
 // Butterworth lowpass from in to out
 // List node specifies resolution
 
-double calc_fsc(fftw_complex *half1, fftw_complex *half2, int32_t size);
+double calc_fsc(fftw_complex *half1, fftw_complex *half2, int32_t size, int32_t nthread);
 // Calculate FSC over map
 // Returns FSC
 
-double suppress_noise(double *in1, double *in2, double *out1, double *out2, r_mrc *mask, list *node, int32_t size);
+double suppress_noise(double *in1, double *in2, double *out1, double *out2, r_mrc *mask, list *node, int32_t size, int32_t nthread);
 // Suppress noise between in/out
 // Returns mean p-val in mask
 
-double truncate_map(double *in1, double *in2, double *out, r_mrc *mask, list *node, arguments *args, int32_t size);
+double truncate_map(double *in1, double *in2, double *out, r_mrc *mask, list *node, arguments *args, int32_t size, int32_t nthread);
 // Updates out if in1/2 over noise
 // Returns fractional recovery
 
-void soften_map(double *in, double *out, int32_t size);
+void soften_map(double *in, double *out, int32_t size, int32_t nthread);
 // Soften edges of map
 
-void write_upsampled(fftw_complex *in, double max_res, r_mrc *mask, char *name, arguments *args, int32_t size);
+void write_upsampled(fftw_complex *in, double max_res, r_mrc *mask, char *name, arguments *args, int32_t size, int32_t nthread);
 // Write out upsampled mrc file combining in1/2
 // Sharpening specified by command line
