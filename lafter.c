@@ -127,7 +127,7 @@ int main(int argc, char **argv){
 
   // Noise suppression loop
   printf("\n\t Suppressing noise -- Pass 1 \n");
-  printf("\n\t # R solution is reported in Ångströms [Å] everywhere it is quoted ");
+  printf("\n\t # Resolution is reported in Ångströms [Å] everywhere it is quoted ");
   printf("\n\t # MeanProb records the estimated probability voxels are not noise ");
   printf("\n\t # FSC indicates the Fourier Shell Correlation between half sets -\n\n");
   fflush(stdout);
@@ -192,7 +192,7 @@ int main(int argc, char **argv){
   // Output result
   printf("\n\t Writing noise suppressed MRC file\n");
   fflush(stdout);
-  char *name1 = "LAFTER_noise_suppressed.mrc";
+  char *name1 = "noise_suppressed.mrc";
   memset(ko1, 0, k_st);
   add_fft(ki1, ko1, xyz, nthread);
   add_fft(ki2, ko1, xyz, nthread);
@@ -271,7 +271,7 @@ int main(int argc, char **argv){
   // Output final volume
   printf("\n\t Outputing noise truncated MRC file\n");
   fflush(stdout);
-  char *name2 = "LAFTER_noise_truncated.mrc";
+  char *name2 = "LAFTER_filtered.mrc";
   write_upsampled(ki1, max_res, mask, name2, args, xyz, nthread);
 
   // ro1 is not needed again
